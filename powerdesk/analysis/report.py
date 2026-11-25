@@ -414,6 +414,10 @@ def render_markdown(d: dict[str, Any]) -> str:
       f"EUR {_fmt(Decimal(fees['one_off']))} one-off. Intraday membership (EUR 8,000/yr) and API access "
       "(EUR 2,000/yr) only if used.")
     a("")
+    a("Capital tied up (not a fee): ALPEX default fund initial contribution EUR 30,000 for a direct "
+      "clearing member, plus collateral (euro cash or bank guarantee) per ALPEX risk rules; the cost "
+      "of financing it is not included below.")
+    a("")
     a("**Not included (unknown, must be quoted):** imbalance/balance-responsibility costs (OST), "
       "collateral / bank guarantee cost, trader time, forecasting service, IT, licences, taxes, "
       "grid charges, any curtailment by the grid operator, plant outages.")

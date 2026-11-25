@@ -18,4 +18,5 @@ Checked 2026-11-25 unless stated.
 | ERE: the DAM is "not yet ready" as a reference price for CfD support (Nov 2024 to Oct 2025 review) | VERIFIED (published) | ERE Board Decision 156/2026; AEA summary |
 | Liquidity: in 25% of hours the DAM could absorb only about 146 MW of extra zero-cost supply; median bid-ask spread 9.7% | VERIFIED (secondary summary of the ERE assessment) | aea-al.org, 2026-04-20 |
 | Balance responsibility and imbalance settlement for a new solar plant | UNVERIFIED | Albanian Balancing Market Rules (ERE 2021/2023); 2026 changes not checked |
-| Collateral and guarantee requirements | UNVERIFIED | alpex.al "Risk Management for DA and Intraday" page not yet read |
+| Collateral: euro cash at 100%, Lek cash at 130% of equivalent value, or letters of guarantee. The margin requirement is based on net position; a net claim (e.g. a seller's proceeds) counts as available cover | VERIFIED (published page) | https://alpex.al/risk-management-for-day-ahead-and-intraday-markets (Technical Decision 3-C not read) |
+| Default fund initial contribution: EUR 30,000 (direct clearing member), EUR 150,000 (general clearing member), recalculated monthly | VERIFIED (published page) | same page |

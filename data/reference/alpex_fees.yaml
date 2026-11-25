@@ -28,6 +28,10 @@ other:
   exam_fee: 100
   certificate_fee_per_user: 50
   technical_fee: 2000                            # basis (one-off or annual) not stated in schedule
+# Capital tied up (not a fee), from https://alpex.al/risk-management-for-day-ahead-and-intraday-markets:
+default_fund_initial_contribution:
+  direct_clearing_member: 30000
+  general_clearing_member: 150000
 # Minimum for a plant trading its own output on the DAM as a direct clearing member:
 minimum_own_dam_membership:
   one_off: 10200          # entrance + administrative
