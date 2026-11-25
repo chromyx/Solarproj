@@ -1,0 +1,70 @@
+[project]
+name = "powerdesk"
+version = "0.1.0"
+description = "POWERDESK: market data, solar modeling and (later) trading decision support for a merchant solar plant on ALPEX. Simulation/analysis only; no order entry."
+requires-python = ">=3.12"
+dependencies = [
+    "sqlalchemy>=2.0,<3",
+    "alembic>=1.13,<2",
+    "psycopg[binary]>=3.1,<4",
+    "httpx>=0.27,<1",
+    "pydantic>=2.7,<3",
+    "pyyaml>=6,<7",
+    "pandas>=2.2,<4",
+    "numpy>=1.26,<3",
+    "pvlib>=0.11,<0.14",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8,<9",
+    "ruff>=0.6",
+    "mypy>=1.10",
+    "types-PyYAML",
+]
+
+[project.scripts]
+powerdesk = "powerdesk.cli:main"
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["powerdesk*"]
+
+[tool.setuptools.package-data]
+powerdesk = ["db/migrations/*.ini", "db/migrations/*.py", "db/migrations/versions/*.py"]
+
+[tool.ruff]
+line-length = 110
+extend-exclude = ["scripts/verify_setup.py"]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "DTZ", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"powerdesk/analysis/report.py" = ["E501"]  # Markdown table templates
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["powerdesk"]
+
+[[tool.mypy.overrides]]
+module = ["pvlib.*", "pandas.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+filterwarnings = [
+    # pandas 4 deprecations raised inside pvlib, not our code
+    "ignore::DeprecationWarning:pvlib.*",
+    "ignore:.*dayofyear is deprecated.*",
+]
+markers = [
+    "db: needs a PostgreSQL database (POWERDESK_TEST_DATABASE_URL)",
+    "network: calls a real external service; skipped unless POWERDESK_RUN_NETWORK_TESTS=1",
+]

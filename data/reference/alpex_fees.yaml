@@ -1,0 +1,35 @@
+# ALPEX fee schedule, copied from the published PDF. All amounts EUR, excluding VAT (VAT applies).
+# Source: "ALPEX FEE SCHEDULE" (file LISTA-E-TARIFAVE-NE-WEB-ANGLISHT_V6.pdf, uploaded 2025-02),
+#   https://alpex.al/wp-content/uploads/2025/02/LISTA-E-TARIFAVE-NE-WEB-ANGLISHT_V6.pdf
+#   Details: ALPEX Technical Decision No. 5-C "ALPEX Fee Schedule" (not read).
+# Accessed 2026-11-25. Supersedes the 2023 tariffs in ERE decision 287/2023 (EUR 7,000 / 0.07 / 0.02).
+accessed: "2026-11-25"
+status: VERIFIED_PUBLISHED_SCHEDULE   # published by ALPEX; check before signing up
+one_off:
+  administrative_fee: 200
+  entrance_fee_exchange_member: 10000
+  accession_fee_general_clearing_member: 7000   # only if becoming a General Clearing Member
+annual:
+  exchange_member_day_ahead: 14000
+  exchange_member_intraday: 8000                 # only if trading intraday auctions
+  direct_clearing_member: 3000                   # clearing own trades
+  general_clearing_member: 6000                  # only if clearing for others
+  clearing_account_maintenance_direct: 100
+  api_user_fee: 2000                             # only if using the trading API
+  annual_training_fee: 200
+per_mwh:
+  trading_day_ahead: 0.090
+  trading_intraday: 0.140
+  clearing_day_ahead: 0.020
+  clearing_intraday: 0.040
+other:
+  trading_on_behalf_fee: 20
+  letters_of_guarantee_management: 50
+  exam_fee: 100
+  certificate_fee_per_user: 50
+  technical_fee: 2000                            # basis (one-off or annual) not stated in schedule
+# Minimum for a plant trading its own output on the DAM as a direct clearing member:
+minimum_own_dam_membership:
+  one_off: 10200          # entrance + administrative
+  annual: 17300           # DAM membership 14,000 + direct clearing 3,000 + account 100 + training 200
+  per_mwh: 0.110          # DAM trading 0.09 + clearing 0.02

@@ -1,0 +1,24 @@
+# Monthly average day-ahead clearing prices as PUBLISHED by ALPEX in its monthly reports.
+# Used only as an independent cross-check of our hourly data (powerdesk check monthly).
+# Values copied by hand from the PDF text on 2026-11-25. Source: https://alpex.al/monthly-reports/
+# These are ALPEX's own published summary figures, cited; no hourly ALPEX data is stored in git.
+accessed: "2026-11-25"
+months:
+  - {month: "2023-06", zone: AL, avg_eur_mwh: 93.53,
+     source: "https://alpex.al/wp-content/uploads/2023/12/Monthly-Report-June-2023.pdf"}
+  - {month: "2024-10", zone: AL, avg_eur_mwh: 105.46,
+     source: "https://alpex.al/wp-content/uploads/2024/11/Monthly-Report-October-2024.pdf"}
+  - {month: "2024-10", zone: KS, avg_eur_mwh: 105.46,
+     source: "https://alpex.al/wp-content/uploads/2024/11/Monthly-Report-October-2024.pdf"}
+  - {month: "2025-07", zone: AL, avg_eur_mwh: 127.78,
+     source: "https://alpex.al/wp-content/uploads/2025/08/Raporti-Mujor-Korrik-2025-anglisht-002.pdf"}
+  - {month: "2025-07", zone: KS, avg_eur_mwh: 127.47,
+     source: "https://alpex.al/wp-content/uploads/2025/08/Raporti-Mujor-Korrik-2025-anglisht-002.pdf"}
+  - {month: "2026-01", zone: AL, avg_eur_mwh: 93.54,
+     source: "https://alpex.al/wp-content/uploads/2026/05/Raporti-Mujor-Janar-2026-anglisht_v3.pdf"}
+  - {month: "2026-01", zone: KS, avg_eur_mwh: 101.65,
+     source: "https://alpex.al/wp-content/uploads/2026/05/Raporti-Mujor-Janar-2026-anglisht_v3.pdf"}
+  - {month: "2026-10", zone: AL, avg_eur_mwh: 240.08,
+     source: "https://alpex.al/wp-content/uploads/2026/11/Monthly-Report-October-2026.pdf"}
+  - {month: "2026-10", zone: KS, avg_eur_mwh: 239.96,
+     source: "https://alpex.al/wp-content/uploads/2026/11/Monthly-Report-October-2026.pdf"}

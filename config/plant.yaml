@@ -1,0 +1,30 @@
+# ONE SOLAR shpk - Divjake solar plant. Every parameter states how sure we are.
+#   CONFIRMED   = from signed engineering/legal documents
+#   PROVISIONAL = owner statement or engineering default; replace when documents arrive
+#   UNKNOWN     = no information; the model runs scenarios instead
+# Do not change a status to CONFIRMED without a document reference in `source`.
+plant:
+  name: {value: "ONE SOLAR - Divjake PV", status: PROVISIONAL, source: "owner, 2026-11-25"}
+  company: {value: "ONE SOLAR shpk", status: PROVISIONAL, source: "owner confirmed 2026-11-25; NIPT not yet provided"}
+  latitude: {value: 40.9960, status: PROVISIONAL, source: "Divjake town centre; exact site coordinates unknown"}
+  longitude: {value: 19.5290, status: PROVISIONAL, source: "Divjake town centre; exact site coordinates unknown"}
+  capacity_dc_mwp: {value: 15.5, status: PROVISIONAL, source: "owner: '15.5 MW ... I guess DC'"}
+  capacity_ac_mw: {value: null, status: UNKNOWN, source: "inverter design not provided"}
+  grid_export_limit_mw: {value: null, status: UNKNOWN, source: "grid connection agreement not provided"}
+  mounting: {value: null, status: UNKNOWN, source: "fixed tilt or tracker not provided"}
+  battery_power_mw: {value: null, status: UNKNOWN, source: "owner: batteries planned, size unknown"}
+  battery_energy_mwh: {value: null, status: UNKNOWN, source: "owner: batteries planned, size unknown"}
+  commercial_operation: {value: "5-10 months after 2026-11-25", status: PROVISIONAL, source: "owner"}
+
+# Engineering defaults used ONLY because design data is missing. All PROVISIONAL.
+model_defaults:
+  dc_ac_ratio_scenarios: [1.0, 1.2, 1.3]
+  mounting_scenarios: [fixed, single_axis]
+  fixed_tilt_deg: 30          # roughly optimal fixed tilt at ~41 N
+  fixed_azimuth_deg: 180      # due south
+  tracker_max_angle_deg: 60
+  tracker_gcr: 0.35
+  gamma_pdc_per_c: -0.0035    # module power temperature coefficient
+  dc_losses_pct: 10.0         # soiling, mismatch, wiring, LID, availability (lumped)
+  inverter_efficiency: 0.98
+  ac_losses_pct: 1.5          # AC cabling + transformer to the metering point
