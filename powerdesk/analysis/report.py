@@ -18,7 +18,9 @@ from typing import Any
 
 import pandas as pd
 import yaml
+from sqlalchemy import select
 
+from powerdesk.analysis.checks import monthly_cross_check
 from powerdesk.analysis.earnings import (
     CENT,
     Outcome,
@@ -30,6 +32,7 @@ from powerdesk.analysis.earnings import (
 )
 from powerdesk.canonical import coverage_by_day, current_values_query
 from powerdesk.config import PlantConfig, load_plant_config
+from powerdesk.db.models import RawPayload
 from powerdesk.db.session import make_engine, make_session_factory
 from powerdesk.ingestion import alpex_web
 from powerdesk.ingestion.base import PoliteHttp, store_raw_payload
@@ -82,7 +85,8 @@ def _last_full_month_end(last_day: date) -> date:
 
 def load_prices(session_factory: Any) -> pd.Series:
     with session_factory() as s:
-        rows = s.scalars(current_values_query(alpex_web.SOURCE_NAME, "AL", "DAM", "price")).all()
+        rows = [r for r in s.scalars(current_values_query(alpex_web.SOURCE_NAME, "AL", "DAM", "price")).all()
+                if r.quality_status != "BAD"]  # unusable intervals are left out, never filled
     if not rows:
         raise RuntimeError("No ALPEX AL DAM prices in the database; run `powerdesk ingest alpex` first")
     idx = pd.DatetimeIndex([r.delivery_start_utc for r in rows]).tz_convert("UTC")
@@ -94,12 +98,20 @@ def _pvcalc_check(session_factory: Any, http: PoliteHttp, lat: float, lon: float
     params = {"lat": f"{lat:.4f}", "lon": f"{lon:.4f}", "peakpower": "1", "loss": f"{loss_pct:.1f}",
               "angle": "30", "aspect": "0", "mountingplace": "free", "pvtechchoice": "crystSi",
               "usehorizon": "1", "raddatabase": "PVGIS-SARAH3", "outputformat": "json"}
-    url = PVCALC_API + "?" + "&".join(f"{k}={v}" for k, v in params.items())
-    fetched = http.request("GET", url)
-    with session_factory.begin() as s:
-        store_raw_payload(s, "PVGIS_PVCALC", fetched, pvgis.LICENSE_STATUS, note=pvgis.ATTRIBUTION,
-                          params_for_record=params)
-    totals = json.loads(fetched.content)["outputs"]["totals"]["fixed"]
+    with session_factory() as s:  # reuse a stored answer for identical inputs
+        stored = s.scalars(select(RawPayload).where(RawPayload.source_name == "PVGIS_PVCALC",
+                                                    RawPayload.request_params == params)
+                           .order_by(RawPayload.fetched_at_utc.desc()).limit(1)).first()
+    if stored is not None:
+        content = stored.content
+    else:
+        url = PVCALC_API + "?" + "&".join(f"{k}={v}" for k, v in params.items())
+        fetched = http.request("GET", url)
+        with session_factory.begin() as s:
+            store_raw_payload(s, "PVGIS_PVCALC", fetched, pvgis.LICENSE_STATUS, note=pvgis.ATTRIBUTION,
+                              params_for_record=params)
+        content = fetched.content
+    totals = json.loads(content)["outputs"]["totals"]["fixed"]
     return {"E_y_kwh_per_kwp": totals["E_y"], "H_i_y_kwh_m2": totals["H(i)_y"], "loss_pct": loss_pct}
 
 
@@ -198,19 +210,7 @@ def build(plant_path: Path, today: date | None = None) -> dict[str, Any]:
         if w is windows[-1]:
             monthly_latest = _monthly(wp, production, scenarios, weather_years)
 
-    monthly_ref = yaml.safe_load(MONTHLY_REF_PATH.read_text(encoding="utf-8"))["months"]
-    monthly_check = []
-    for ref in monthly_ref:
-        if ref["zone"] != "AL":
-            continue
-        y, m = map(int, ref["month"].split("-"))
-        local = prices.index.tz_convert("Europe/Tirane")
-        sel = prices[(local.year == y) & (local.month == m)]
-        if len(sel):
-            avg = (sum(sel.to_numpy(), Decimal(0)) / len(sel)).quantize(CENT)
-            monthly_check.append({"month": ref["month"], "computed": str(avg), "reported": ref["avg_eur_mwh"],
-                                  "hours": len(sel),
-                                  "match": abs(avg - Decimal(str(ref["avg_eur_mwh"]))) <= CENT})
+    monthly_check = [m for m in monthly_cross_check(sf, MONTHLY_REF_PATH) if m["zone"] == "AL"]
 
     return {
         "generated_at_utc": datetime.now(UTC).isoformat(timespec="seconds"),
@@ -258,6 +258,9 @@ def _summarize(w: Window, sc: Scenario, outs: list[Outcome], expected_hours: int
         "low_price_mwh_p50": str(pct("low_price_mwh", 50).quantize(Decimal(1))),
         "curtailment_gain_eur_p50": str(pct("curtailment_gain_eur", 50).quantize(Decimal(1))),
         "variable_fees_eur_p50": str(pct("variable_fees_eur", 50).quantize(Decimal(1))),
+        "top10_hours_share_p50": str(percentile(
+            [o.top10_hours_revenue_eur / o.revenue_eur for o in outs if o.revenue_eur], 50
+        ).quantize(Decimal("0.001"))),
     }
 
 
@@ -357,8 +360,21 @@ def render_markdown(d: dict[str, Any]) -> str:
     a("")
     a("| Month | Computed from hourly data | ALPEX monthly report | Match |")
     a("|---|---|---|---|")
+    notes = []
     for m in d["monthly_check"]:
-        a(f"| {m['month']} | {m['computed']} | {m['reported']} | {'yes' if m['match'] else 'NO'} |")
+        verdict = "yes" if m["match"] else ("no - explained*" if m.get("explained") else "NO")
+        a(f"| {m['month']} | {m['computed']} | {m['reported']} | {verdict} |")
+        if not m["match"] and m.get("explained"):
+            notes.append(f"*{m['month']}: {' '.join(m['explained'].split())}")
+    a("")
+    for n in notes:
+        a(n)
+        a("")
+    a("Known source issues, handled without guessing: two autumn clock-change days (2023-10-29, "
+      "2024-10-27) were published with 24 instead of 25 hours, so they are marked unusable and left out; "
+      "one hour on 2023-12-31 has a corrupted label and is missing. Extreme prices of -500 EUR/MWh "
+      "(6-7 May 2024) and +4,000 EUR/MWh (21 Jun 2024, the day of the regional blackout) are as "
+      "published and are included.")
     a("")
     a("## 4. Production model (MODELED-PROVISIONAL) and cross-check")
     a("")
@@ -384,10 +400,19 @@ def render_markdown(d: dict[str, Any]) -> str:
           f"{_fmt(100 * Decimal(r['capture_rate_p50']), 1)}% | {_fmt(Decimal(v['p50']))} "
           f"({_fmt(Decimal(v['p90']))}-{_fmt(Decimal(v['p10']))}) |")
     a("")
+    a("Revenue concentration (P50 weather, DC/AC 1.2): share of the period's gross value earned in its "
+      "10 best hours.")
+    a("")
+    a("| Period | Design | Top 10 hours share |")
+    a("|---|---|---|")
+    for r in res:
+        if r["scenario_key"].endswith("1.2"):
+            a(f"| {r['window']} | {r['scenario']} | {_fmt(100 * Decimal(r['top10_hours_share_p50']), 1)}% |")
+    a("")
     a("## 6. Low and negative price hours")
     a("")
-    a("ALPEX's price floor was 0 EUR/MWh until it was lowered to -50 EUR/MWh (reported July 2026), "
-      "so negative prices can only appear recently.")
+    a("ALPEX's price limits have changed over time: the data contains -500 EUR/MWh in May 2024; "
+      "a floor of -50 EUR/MWh was reported from July 2026 (lowered from 0).")
     a("")
     a("| Period | Design | Producing hours < 10 EUR/MWh | MWh in them | Producing hours < 0 | Value lost in them EUR | Gain if curtailed below 0 EUR |")
     a("|---|---|---|---|---|---|---|")

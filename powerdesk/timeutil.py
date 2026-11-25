@@ -90,3 +90,28 @@ def alpex_hourly_mtu_map(day: date) -> dict[int, Interval]:
     if len(intervals) == 25:
         return {i + 1: iv for i, iv in enumerate(intervals)}
     return {iv.start_local.hour + 1: iv for iv in intervals}
+
+
+def resolve_alpex_hourly_labels(day: date, labels: set[int]) -> tuple[dict[int, Interval], str | None]:
+    """Choose the MTU-label convention for one day from the labels ALPEX actually published.
+
+    Returns (label -> interval map, ambiguity reason or None). ALPEX has used different conventions
+    on DST days (verified in the raw data, 2026-11-25):
+    - 23-hour days: 2024-03-31 and 2026-03-29 skip label 3; 2025-03-30 uses 1..23 sequentially.
+    - 25-hour days: 2025-10-26 and 2026-10-25 use 1..25; 2023-10-29 and 2024-10-27 were published
+      with only labels 1..24, so which hour is which cannot be known -> ambiguous.
+    """
+    intervals = day_intervals(day, 60)
+    sequential = {i + 1: iv for i, iv in enumerate(intervals)}
+    if len(intervals) == 24:
+        return sequential, None
+    if len(intervals) == 23:
+        if 3 in labels and 24 not in labels:
+            return sequential, None
+        skip3 = {iv.start_local.hour + 1: iv for iv in intervals}
+        if 3 in labels and 24 in labels:
+            return skip3, "23-hour DST day published with both labels 3 and 24; hour mapping ambiguous"
+        return skip3, None
+    if 25 in labels or not labels:
+        return sequential, None
+    return sequential, "25-hour DST day published with only 24 labels; hour mapping ambiguous"

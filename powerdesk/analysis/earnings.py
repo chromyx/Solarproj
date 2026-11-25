@@ -47,6 +47,7 @@ class Outcome:
     curtailed_energy_mwh: Decimal
     curtailed_revenue_eur: Decimal
     variable_fees_eur: Decimal
+    top10_hours_revenue_eur: Decimal  # value earned in the 10 highest-value hours
 
     @property
     def capture_eur_mwh(self) -> Decimal:
@@ -92,6 +93,9 @@ def compute_outcome(
         curtailed_energy_mwh=energy_total - neg_mwh,
         curtailed_revenue_eur=(revenue - neg_rev).quantize(CENT, ROUND_HALF_UP),
         variable_fees_eur=(energy_total * variable_fee_eur_mwh).quantize(CENT, ROUND_HALF_UP),
+        top10_hours_revenue_eur=sum(
+            sorted((p * e for p, e in zip(prices, energy, strict=True)), reverse=True)[:10], Decimal(0)
+        ).quantize(CENT, ROUND_HALF_UP),
     )
 
 

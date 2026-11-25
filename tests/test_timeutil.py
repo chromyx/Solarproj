@@ -10,6 +10,7 @@ from powerdesk.timeutil import (
     day_intervals,
     hours_in_day,
     local_midnight_utc,
+    resolve_alpex_hourly_labels,
 )
 
 SPRING_2026 = date(2026, 3, 29)  # Europe/Tirane: 02:00 -> 03:00
@@ -86,3 +87,18 @@ def test_alpex_labels_autumn_day_sequential_25() -> None:
     assert m[3].start_local.hour == 2 and m[4].start_local.hour == 2
     assert m[4].start_utc - m[3].start_utc == timedelta(hours=1)
     assert m[25].end_utc == local_midnight_utc(date(2026, 10, 26))
+
+
+def test_resolver_picks_convention_from_published_labels() -> None:
+    skip3, why = resolve_alpex_hourly_labels(SPRING_2026, {1, 2, *range(4, 25)})
+    assert why is None and skip3[4].start_local.hour == 3
+    seq, why = resolve_alpex_hourly_labels(SPRING_2026, set(range(1, 24)))
+    assert why is None and seq[3].start_local.hour == 3 and seq[4].start_local.hour == 4
+    _, why = resolve_alpex_hourly_labels(SPRING_2026, set(range(1, 25)))
+    assert why is not None
+    full, why = resolve_alpex_hourly_labels(AUTUMN_2026, set(range(1, 26)))
+    assert why is None and len(full) == 25
+    _, why = resolve_alpex_hourly_labels(AUTUMN_2026, set(range(1, 25)))
+    assert why is not None and "ambiguous" in why
+    normal, why = resolve_alpex_hourly_labels(NORMAL, set(range(1, 25)))
+    assert why is None and len(normal) == 24

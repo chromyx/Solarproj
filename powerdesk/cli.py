@@ -89,37 +89,17 @@ def cmd_sources_status(args: argparse.Namespace) -> int:
     return 0
 
 
-def monthly_averages(zone: str, product: str = "DAM") -> dict[str, tuple[Decimal, int]]:
-    """Simple arithmetic mean of current hourly prices per calendar month (local delivery day)."""
-    from powerdesk.canonical import current_values_query
-
-    sf = make_session_factory(make_engine())
-    sums: dict[str, tuple[Decimal, int]] = {}
-    with sf() as s:
-        for row in s.scalars(current_values_query(alpex_web.SOURCE_NAME, zone, product, "price")):
-            k = row.delivery_day_local.strftime("%Y-%m")
-            tot, n = sums.get(k, (Decimal(0), 0))
-            sums[k] = (tot + row.value, n + 1)
-    return {k: (tot / n, n) for k, (tot, n) in sorted(sums.items())}
-
-
 def cmd_check_monthly(args: argparse.Namespace) -> int:
-    import yaml
+    from powerdesk.analysis.checks import cross_check_passes, monthly_cross_check
 
-    ref_path = Path(args.reference)
-    refs = yaml.safe_load(ref_path.read_text(encoding="utf-8"))["months"] if ref_path.exists() else []
-    ref_by = {(r["month"], r["zone"]): r for r in refs}
-    ok = True
-    for zone in ("AL", "KS"):
-        for month, (avg, n) in monthly_averages(zone).items():
-            ref = ref_by.get((month, zone))
-            line = f"{zone} {month} computed_avg={avg:.2f} EUR/MWh hours={n}"
-            if ref is not None:
-                diff = abs(avg - Decimal(str(ref["avg_eur_mwh"])))
-                verdict = "MATCH" if diff <= Decimal(args.tolerance) else "MISMATCH"
-                ok &= verdict == "MATCH"
-                line += f" reported={ref['avg_eur_mwh']} diff={diff:.3f} {verdict}"
-            print(line)
+    rows = monthly_cross_check(make_session_factory(make_engine()), Path(args.reference),
+                               Decimal(args.tolerance))
+    for r in rows:
+        verdict = "MATCH" if r["match"] else (
+            "MISMATCH-EXPLAINED (see reference file)" if r["explained"] else "MISMATCH")
+        print(f"{r['zone']} {r['month']} computed_avg={r['computed']} EUR/MWh hours={r['hours']} "
+              f"reported={r['reported']} diff={r['diff']} {verdict}")
+    ok = cross_check_passes(rows)
     print("cross-check:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
 

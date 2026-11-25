@@ -19,6 +19,9 @@ months:
   - {month: "2026-01", zone: KS, avg_eur_mwh: 101.65,
      source: "https://alpex.al/wp-content/uploads/2026/05/Raporti-Mujor-Janar-2026-anglisht_v3.pdf"}
   - {month: "2026-10", zone: AL, avg_eur_mwh: 240.08,
-     source: "https://alpex.al/wp-content/uploads/2026/11/Monthly-Report-October-2026.pdf"}
+     source: "https://alpex.al/wp-content/uploads/2026/11/Monthly-Report-October-2026.pdf",
+     explained: "Headline 240.08 contradicts the same report's own 24 per-hour AL averages, all of which
+       match our data exactly (mean of those 24 = 242.12; our 745-hour mean = 242.08). Most likely a
+       typo in the report (242.08 -> 240.08). Checked 2026-11-25."}
   - {month: "2026-10", zone: KS, avg_eur_mwh: 239.96,
      source: "https://alpex.al/wp-content/uploads/2026/11/Monthly-Report-October-2026.pdf"}

@@ -18,6 +18,7 @@ def test_three_interval_hand_worked_example() -> None:
     assert o.baseload_eur_mwh == D("100.00")
     assert o.capture_rate == D("0.667")
     assert o.variable_fees_eur == D("0.66")  # 6 MWh x 0.11
+    assert o.top10_hours_revenue_eur == D("400.00")  # only 3 hours, all count
 
 
 def test_negative_price_hours_reduce_revenue_and_curtailment_recovers_it() -> None:
@@ -64,3 +65,9 @@ def test_percentile_decimal() -> None:
     xs = [D(10), D(20), D(30), D(40)]
     assert percentile(xs, 50) == D(25)
     assert percentile(xs, 0) == D(10) and percentile(xs, 100) == D(40)
+
+
+def test_top10_hours_revenue() -> None:
+    prices = [D(i) for i in range(1, 21)]  # 1..20 EUR/MWh, 1 MWh each
+    o = compute_outcome(prices, [D(1)] * 20, D(0))
+    assert o.top10_hours_revenue_eur == D(sum(range(11, 21)))  # 155

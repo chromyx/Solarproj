@@ -49,11 +49,39 @@ def test_rows_for_other_days_are_dropped() -> None:
     assert any("dropped row dated" in i for i in parsed.issues)
 
 
-def test_nonexistent_spring_label_rejected_and_missing_reported() -> None:
-    rows = [synthetic_row(SPRING, m, m) for m in range(1, 25)]  # includes label 3, which can't exist
+def test_spring_day_with_labels_3_and_24_is_ambiguous_and_stored_as_bad() -> None:
+    rows = [synthetic_row(SPRING, m, m) for m in range(1, 25)]  # 24 labels on a 23-hour day
     parsed = parse_day_response(synthetic_day_response(SPRING, rows), SPRING, FIXTURE_COLUMNS)
+    assert parsed.ambiguous is not None
+    vals = to_canonical(parsed, "DAM", 1)
+    assert vals and all(v.forced_status == "BAD" for v in vals)
+
+
+def test_spring_day_sequential_labels_1_to_23() -> None:
+    # Observed on 2025-03-30: labels 1..23 (no gap), unlike 2024/2026 which skip label 3.
+    rows = [synthetic_row(SPRING, m, m) for m in range(1, 24)]
+    parsed = parse_day_response(synthetic_day_response(SPRING, rows), SPRING, FIXTURE_COLUMNS)
+    assert parsed.ambiguous is None and parsed.issues == []
+    by_label = {r.mtu: r.interval for r in parsed.rows}
+    assert by_label[3].start_local.hour == 3 and by_label[23].start_local.hour == 23
+
+
+def test_autumn_day_with_only_24_labels_is_ambiguous() -> None:
+    # Observed on 2023-10-29 and 2024-10-27: 25-hour day published with labels 1..24 only.
+    rows = [synthetic_row(AUTUMN, m, m) for m in range(1, 25)]
+    parsed = parse_day_response(synthetic_day_response(AUTUMN, rows), AUTUMN, FIXTURE_COLUMNS)
+    assert parsed.ambiguous is not None and len(parsed.rows) == 24
+    assert all(v.forced_status == "BAD" for v in to_canonical(parsed, "DAM", 1))
+
+
+def test_garbage_mtu_label_is_reported_not_guessed() -> None:
+    # Observed on 2023-12-31: last row labeled "45,292" instead of 24.
+    rows = [synthetic_row(NORMAL, m, m) for m in range(1, 24)]
+    rows.append(synthetic_row(NORMAL, 24, 24))
+    rows[-1][5] = "45,292"
+    parsed = parse_day_response(synthetic_day_response(NORMAL, rows), NORMAL, FIXTURE_COLUMNS)
     assert len(parsed.rows) == 23
-    assert any("MTU label 3 does not exist" in i for i in parsed.issues)
+    assert "missing MTU labels [24]" in parsed.issues and any("45,292" in i for i in parsed.issues)
 
 
 def test_missing_hour_is_reported_not_invented() -> None:

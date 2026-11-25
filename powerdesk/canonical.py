@@ -17,8 +17,8 @@ from sqlalchemy.orm import Session
 from powerdesk.db.models import MarketIntervalValue
 from powerdesk.timeutil import Interval, hours_in_day
 
-# ALPEX DAM limits as published in 2026: floor -50 EUR/MWh (from about July 2026; 0 before),
-# cap 900 EUR/MWh. Values outside are flagged, not dropped (limits may have differed historically).
+# ALPEX DAM limits reported for 2026: floor -50 EUR/MWh, cap 900 EUR/MWh. Limits have changed over
+# time (the data contains -500 and +4000 EUR/MWh in 2024), so values outside are flagged, not dropped.
 PRICE_WARN_RANGE = (Decimal(-50), Decimal(900))
 # Values outside this wider range are treated as data errors.
 PRICE_BAD_RANGE = (Decimal(-500), Decimal(4000))
@@ -42,6 +42,7 @@ class CanonicalValue:
     raw_payload_id: int
     published_at_utc: datetime | None = None
     extra_notes: tuple[str, ...] = ()
+    forced_status: str | None = None  # e.g. "BAD" when the source makes the interval unknowable
 
     @property
     def unit(self) -> str:
@@ -61,7 +62,7 @@ def validate(quantity: str, value: Decimal) -> tuple[str, list[str]]:
         lo, hi = PRICE_WARN_RANGE
         if not lo <= value <= hi:
             status = "WARN"
-            notes.append(f"price {value} outside 2026 ALPEX DAM limits [{lo}, {hi}]")
+            notes.append(f"price {value} outside the [{lo}, {hi}] limits reported for 2026")
     elif quantity == "volume" and value < 0:
         return "BAD", [f"negative volume {value}"]
     return status, notes
@@ -108,8 +109,11 @@ def store_values(session: Session, values: Sequence[CanonicalValue]) -> UpsertSt
         notes.extend(v.extra_notes)
         if notes and status == "OK":
             status = "WARN"
+        if v.forced_status is not None:
+            status = v.forced_status
         prev = latest.get(_key(v))
-        if prev is not None and prev.value == v.value and prev.quality_status == status:
+        if (prev is not None and prev.value == v.value and prev.quality_status == status
+                and prev.source_mtu_label == v.source_mtu_label):
             stats.unchanged += 1
             continue
         revision = 1 if prev is None else prev.revision_id + 1

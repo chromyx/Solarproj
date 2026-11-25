@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from powerdesk.canonical import CanonicalValue, UpsertStats, coverage_by_day, store_values
 from powerdesk.ingestion.base import PoliteHttp, store_raw_payload
-from powerdesk.timeutil import Interval, alpex_hourly_mtu_map
+from powerdesk.timeutil import Interval, resolve_alpex_hourly_labels
 
 log = logging.getLogger(__name__)
 
@@ -121,6 +121,7 @@ class ParsedDay:
     day: date
     rows: list[ParsedRow]
     issues: list[str] = field(default_factory=list)
+    ambiguous: str | None = None  # set when the hour mapping cannot be known; values stored as BAD
 
 
 def _parse_date(s: str) -> date | None:
@@ -149,8 +150,7 @@ def parse_day_response(content: bytes, day: date, columns: tuple[str, ...]) -> P
     if filtered != len(data):
         result.issues.append(f"server reported {filtered} rows but returned {len(data)}")
 
-    mtu_map = alpex_hourly_mtu_map(day)
-    by_mtu: dict[int, list[ParsedRow]] = {}
+    candidates: list[tuple[int, list[Any]]] = []
     for raw_row in data:
         if not isinstance(raw_row, list) or len(raw_row) != len(columns):
             result.issues.append(f"malformed row {raw_row!r}")
@@ -160,10 +160,15 @@ def parse_day_response(content: bytes, day: date, columns: tuple[str, ...]) -> P
             result.issues.append(f"dropped row dated {raw_row[idx['date']]!r} (requested {day})")
             continue
         try:
-            mtu = int(str(raw_row[idx["mtu"]]))
+            candidates.append((int(str(raw_row[idx["mtu"]])), raw_row))
         except ValueError:
             result.issues.append(f"non-integer MTU {raw_row[idx['mtu']]!r}")
-            continue
+
+    mtu_map, result.ambiguous = resolve_alpex_hourly_labels(day, {m for m, _ in candidates})
+    if result.ambiguous:
+        result.issues.append(result.ambiguous)
+    by_mtu: dict[int, list[ParsedRow]] = {}
+    for mtu, raw_row in candidates:
         if mtu not in mtu_map:
             result.issues.append(f"MTU label {mtu} does not exist on {day} ({len(mtu_map)}h day)")
             continue
@@ -213,7 +218,9 @@ def to_canonical(
                 product=product, quantity=quantity, value=value, source_name=source_name,
                 source_record_id=row.record_id or None, source_mtu_label=row.mtu,
                 is_simulated=is_simulated, source_license_status=license_status,
-                raw_payload_id=raw_payload_id, extra_notes=row.notes,
+                raw_payload_id=raw_payload_id,
+                extra_notes=row.notes + ((parsed.ambiguous,) if parsed.ambiguous else ()),
+                forced_status="BAD" if parsed.ambiguous else None,
             ))
     return out
 
